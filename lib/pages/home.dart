@@ -13,6 +13,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         //Changed the title
+        //Change
         title: Text('Financial Tracker'),
       ),
       body: Container(),
