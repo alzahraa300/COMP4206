@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:project_part1/pages/home.dart';
+import 'pages/home.dart';
+import 'constants/app_constants.dart';
 
-void main() => runApp(const MyApp());
+void main() {
+  runApp(BudgetTrackerApp());
+}
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class BudgetTrackerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: AppConstants.appTitle,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const MyHomePage(title: 'Home'),
+      home: HomeScreen(),
     );
   }
 }
