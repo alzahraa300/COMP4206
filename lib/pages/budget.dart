@@ -111,6 +111,15 @@ class _BudgetState extends State<BudgetScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppConstants.primaryColor,
+      appBar: AppBar(
+        title: const Text('Budget Managment', style: TextStyle(color: AppConstants.textColor)),
+        backgroundColor: AppConstants.primaryColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppConstants.textColor),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [

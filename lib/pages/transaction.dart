@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_constants.dart';
+import 'confirmation.dart';
 
 class TransactionScreen extends StatefulWidget {
   const TransactionScreen({Key? key}) : super(key: key);
@@ -350,11 +351,16 @@ class _TransactionScreenState extends State<TransactionScreen> {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Transaction Saved!')),
-                    );
-                    Navigator.pop(context);
-                  },
+                      Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                      builder: (context) =>  ConfirmationPage(
+                      action: 'Transaction Added',
+                      details: 'Your transaction has been successfully recorded!',
+                      ),
+                      ),
+                      );
+                      },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     shape: RoundedRectangleBorder(
@@ -369,6 +375,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     backgroundColor: Colors.redAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
+
                     ),
                   ),
                   child: const Text('Cancel'),

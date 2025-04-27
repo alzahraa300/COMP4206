@@ -1,3 +1,4 @@
+import 'package:comp4206ver3/pages/reports.dart';
 import 'package:comp4206ver3/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
@@ -210,10 +211,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: Text('Reports', style: TextStyle(color: AppConstants.textColor)),
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Navigated to Reports')),
+                  Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                  builder: (context) => ReportsScreen(),
+                  ),
                   );
-                },
+                  },
               ),
               ListTile(
                 leading: Icon(Icons.logout, color: AppConstants.textColor),
@@ -323,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               MaterialPageRoute(
                 //change to report
-                builder: (context) => BudgetScreen(userName: widget.userName),
+                builder: (context) => ReportsScreen(),
               ),
             );
           }
