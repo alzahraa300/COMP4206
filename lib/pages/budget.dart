@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
+//import '../pages/transaction.dart';
 import '../models/budget_page_category.dart';
 import '../pages/add_budget.dart';
+import '../pages/confirmation.dart';
 
 class BudgetScreen extends StatefulWidget {
   @override
@@ -16,6 +18,16 @@ class _BudgetState extends State<BudgetScreen> {
   ];
 
   String? selectedCategory;
+  bool _hasShownExceededAlert = false;
+
+  void SnackBarMessenger(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
 
   void _showBudgetExceededAlert(BuildContext context,String category) {
     showDialog(
@@ -48,16 +60,35 @@ class _BudgetState extends State<BudgetScreen> {
         budgets.removeWhere((item) => item.category == selectedCategory);
         selectedCategory = null;
       });
+      SnackBarMessenger(context, "Budget Deleted Successfully");
     }
   }
 
-  void _showAddBudgetForm() {
-    Navigator.push(
+  void _showAddBudgetForm() async {
+    final existingCategories = budgets.map((b) => b.category.trim()).toSet();
+
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NewBudgetForm(onSubmit: _addNewBudget),
+        builder: (context) => NewBudgetForm(
+          onSubmit: _addNewBudget,
+          existingCategories: existingCategories,
+        ),
       ),
     );
+
+    if (result == true) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ConfirmationPage(
+            action: "New Budget Added",
+            details: "Your budget has been successfully set.",
+          ),
+        ),
+      );
+
+    }
   }
 
   void _editBudget() {
@@ -72,7 +103,6 @@ class _BudgetState extends State<BudgetScreen> {
     BottomNavigationBarItem(icon: Icon(Icons.swap_horiz), label: 'Transactions'),
     BottomNavigationBarItem(icon: Icon(Icons.pie_chart), label: 'Budget'),
     BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Reports'),
-    BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
   ];
 
   @override
@@ -134,6 +164,7 @@ class _BudgetState extends State<BudgetScreen> {
         onPressed: _showAddBudgetForm,
         backgroundColor: Colors.yellow,
         child: Icon(Icons.add),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))
       ),
       //floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
@@ -165,9 +196,10 @@ class _BudgetState extends State<BudgetScreen> {
     double remaining = item.limit - item.spent;
     double progress = item.spent / item.limit;
 
-    if (item.spent > item.limit) {
+    if (item.spent > item.limit && _hasShownExceededAlert == false) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showBudgetExceededAlert(context, item.category);
+        _hasShownExceededAlert = true;
       });
     }
 
