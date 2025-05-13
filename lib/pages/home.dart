@@ -214,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                   context,
                   MaterialPageRoute(
-                  builder: (context) => ReportsScreen(),
+                  builder: (context) => ReportsScreen (userName: widget.userName),
                   ),
                   );
                   },
@@ -301,11 +301,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppConstants.primaryColor,
-        selectedItemColor: AppConstants.accentColor,
-        unselectedItemColor: AppConstants.textColor.withOpacity(0.6),
-        items: _navItems,
-        onTap: (index) {
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: AppConstants.navColor,
+          selectedItemColor: Colors.amber,
+          unselectedItemColor: AppConstants.textColor,
+          items: _navItems,
+
+          onTap: (index) {
           if (index == 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Already on Home')),
@@ -327,7 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               MaterialPageRoute(
                 //change to report
-                builder: (context) => ReportsScreen(),
+                builder: (context) =>  ReportsScreen(userName: widget.userName),
               ),
             );
           }

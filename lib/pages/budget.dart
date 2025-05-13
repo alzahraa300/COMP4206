@@ -1,9 +1,12 @@
+import 'package:comp4206ver3/pages/reports.dart';
+import 'package:comp4206ver3/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 //import '../pages/transaction.dart';
 import '../models/budget_page_category.dart';
 import '../pages/add_budget.dart';
 import '../pages/confirmation.dart';
+import 'home.dart';
 
 class BudgetScreen extends StatefulWidget {
   final String userName; // Add this parameter
@@ -178,13 +181,40 @@ class _BudgetState extends State<BudgetScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))
       ),
       //floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
       bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppConstants.navColor,
-          selectedItemColor: Colors.amber,
-          unselectedItemColor: AppConstants.textColor,
-          items: _navItems
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: AppConstants.navColor,
+        selectedItemColor: Colors.amber,
+        unselectedItemColor: AppConstants.textColor,
+        items: _navItems,
+
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(userName: widget.userName), // Pass userName
+              ),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TransactionScreen()),
+            );
+          } else if (index == 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Already on Budget')),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                //change to report
+                builder: (context) => ReportsScreen(userName: widget.userName),
+              ),
+            );
+          }
+        },
       ),
 
     );

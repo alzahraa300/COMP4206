@@ -1,8 +1,13 @@
+import 'package:comp4206ver3/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../constants/app_constants.dart';
+import 'budget.dart';
+import 'home.dart';
 
 class ReportsScreen extends StatelessWidget {
+  final String userName; // Add this parameter
+  ReportsScreen({Key? key, required this.userName}) : super(key: key);
   final double totalIncome = 1500;
   final double totalExpenses = 600;
 
@@ -53,11 +58,38 @@ class ReportsScreen extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppConstants.navColor,
-          selectedItemColor: Colors.amber,
-          unselectedItemColor: AppConstants.textColor,
-          items: _navItems
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: AppConstants.navColor,
+        selectedItemColor: Colors.amber,
+        unselectedItemColor: AppConstants.textColor,
+        items: _navItems,
+
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(userName: userName), // Pass userName
+              ),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TransactionScreen()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BudgetScreen(userName: userName),
+              ),
+            );
+          } else if (index == 3) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Already on Reports')),
+            );
+          }
+        },
       ),
     );
   }
