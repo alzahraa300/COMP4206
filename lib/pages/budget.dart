@@ -11,8 +11,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home.dart';
 
 class BudgetScreen extends StatefulWidget {
-  final String userName; // Add this parameter
-  const BudgetScreen({Key? key, required this.userName}) : super(key: key);
+  final String uid;
+  const BudgetScreen({Key? key, required this.uid}) : super(key: key);
   @override
   _BudgetState createState() => _BudgetState();
 }
@@ -67,7 +67,7 @@ class _BudgetState extends State<BudgetScreen> {
   void _showAddBudgetForm() async {
     List<String> existingCategories = [];
 
-    existingCategories = await getAllCategoryNames();
+    existingCategories = await getAllCategoryNames(widget.uid);
     setState(() {}); // if you're in a StatefulWidget
 
     final result = await Navigator.push(
@@ -75,6 +75,7 @@ class _BudgetState extends State<BudgetScreen> {
       MaterialPageRoute(
         builder: (context) => NewBudgetForm(
           existingCategories: existingCategories,
+          uid: widget.uid,
         ),
       ),
     );
@@ -134,10 +135,8 @@ class _BudgetState extends State<BudgetScreen> {
               decoration: AppConstants.gradientDecoration,
               child: Column(
                 children: [
-                  _buildTableHeader(),
-                  Divider(color: Colors.white),
                   StreamBuilder<List<BudgetPageCategory>>(
-                    stream: getBudgets(),
+                    stream: getBudgets(widget.uid),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return CircularProgressIndicator();
@@ -149,8 +148,50 @@ class _BudgetState extends State<BudgetScreen> {
 
                       final budgets = snapshot.data!;
 
-                      return Column(
-                        children: budgets.map((item) => _buildTableRow(item)).toList(),
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: budgets.length,
+                        itemBuilder: (context, index) {
+                          final budget = budgets[index];
+                          double remaining = budget.limit - budget.spent;
+                          double progress = budget.spent / budget.limit;
+
+                          if (budget.spent > budget.limit && !_hasShownExceededAlert) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _showBudgetExceededAlert(context, budget.category);
+                              _hasShownExceededAlert = true;
+                            });
+                          }
+
+                          return ListTile(
+                            title: Text(budget.category, style: TextStyle(color: Colors.white)),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Limit: \$${budget.limit.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
+                                Text('Spent: \$${budget.spent.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
+                                Text('Remaining: \$${remaining.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
+                                SizedBox(height: 4),
+                                LinearProgressIndicator(
+                                  value: progress > 1.0 ? 1.0 : progress,
+                                  color: AppConstants.accentColor,
+                                  backgroundColor: Colors.grey[300],
+                                ),
+
+                              ],
+                            ),
+                            trailing: Radio<String>(
+                              value: budget.category,
+                              groupValue: selectedCategory,
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedCategory = value;
+                                });
+                              },
+                            ),
+                          );
+                        },
                       );
                     },
                   ),
@@ -195,7 +236,7 @@ class _BudgetState extends State<BudgetScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(userName: widget.userName), // Pass userName
+                builder: (context) => HomeScreen(uid: widget.uid), // Pass userName
               ),
             );
           } else if (index == 1) {
@@ -207,73 +248,19 @@ class _BudgetState extends State<BudgetScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Already on Budget')),
             );
-          } else if (index == 3) {
+          } /*else if (index == 3) {
             Navigator.push(
               context,
               MaterialPageRoute(
                 //change to report
-                builder: (context) => ReportsScreen(userName: widget.userName),
+                builder: (context) => ReportsScreen(uid: widget.uid),
               ),
             );
-          }
+          }*/
         },
       ),
 
     );
   }
-
-  Widget _buildTableHeader() {
-    return Row(
-      children: const [
-        Expanded(flex: 2, child: Text('Category', style: _headerStyle)),
-        Expanded(flex: 2, child: Text('Limit', style: _headerStyle)),
-        Expanded(flex: 2, child: Text('Spent', style: _headerStyle)),
-        Expanded(flex: 2, child: Text('Remaining', style: _headerStyle)),
-        Expanded(child: Text('Progress', style: _headerStyle)),
-        Text("Select", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  Widget _buildTableRow(BudgetPageCategory item) {
-    double remaining = item.limit - item.spent;
-    double progress = item.spent / item.limit;
-
-    if (item.spent > item.limit && _hasShownExceededAlert == false) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showBudgetExceededAlert(context, item.category);
-        _hasShownExceededAlert = true;
-      });
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(2.0),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: Text(item.category)),
-          Expanded(flex: 2, child: Text('\$${item.limit.toStringAsFixed(2)}')),
-          Expanded(flex: 2, child: Text('\$${item.spent.toStringAsFixed(2)}')),
-          Expanded(flex: 2, child: Text('\$${remaining.toStringAsFixed(2)}')),
-          Expanded(
-            child: LinearProgressIndicator(
-              value: progress > 1.0 ? 1.0 : progress,
-              color: AppConstants.accentColor,
-              backgroundColor: Colors.white,
-            ),
-          ),
-          Radio<String>(
-            value: item.category,
-            groupValue: selectedCategory,
-            onChanged: (value) {
-              setState(() {
-                selectedCategory = value;
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-const _headerStyle = TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13);

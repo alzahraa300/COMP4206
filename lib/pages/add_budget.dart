@@ -6,8 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class NewBudgetForm extends StatefulWidget {
   final List<String> existingCategories;
+  final String uid;
 
-  NewBudgetForm({required this.existingCategories});
+  NewBudgetForm({required this.existingCategories, required this.uid});
 
   @override
   _NewBudgetFormState createState() => _NewBudgetFormState();
@@ -30,7 +31,7 @@ class _NewBudgetFormState extends State<NewBudgetForm> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      BudgetPageCategory newBudget = BudgetPageCategory(category: _category, limit: _limit, spent: 0.0);
+      BudgetPageCategory newBudget = BudgetPageCategory(category: _category, limit: _limit, spent: 0.0, uid: widget.uid);
       add_new_budget(newBudget);
       Navigator.pop(context, true);
     }

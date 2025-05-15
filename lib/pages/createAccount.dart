@@ -5,6 +5,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../constants/app_constants.dart';
 import 'login.dart';
+import '../services/users_services.dart';
+
+final FirebaseService _firebaseService = FirebaseService();
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({Key? key}) : super(key: key);
@@ -46,18 +49,36 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return password.length >= 8 && RegExp(r'^(?=.*[A-Za-z])(?=.*\d)').hasMatch(password);
   }
 
-  void _signUp() {
-    if (_formKey.currentState!.validate() && _selectedClassifications.isNotEmpty && _selectedAge != null) {
-      String fullName = '${_firstNameController.text} ${_lastNameController.text}';
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully! Please log in.')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LoginScreen(fullName: fullName),
-        ),
-      );
+  void _signUp() async {
+    if (_formKey.currentState!.validate() &&
+        _selectedClassifications.isNotEmpty &&
+        _selectedAge != null) {
+      try {
+        await _firebaseService.createUser(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+          classifications: _selectedClassifications.toList(),
+          age: _selectedAge!.toInt(),
+          profileImage: _profileImage,
+        );
+
+        String fullName = '${_firstNameController.text} ${_lastNameController.text}';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created successfully! Please log in.')),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen(fullName: fullName)),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Signup failed: $e')),
+        );
+      }
     } else {
       if (_selectedClassifications.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,9 +108,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppConstants.primaryColor,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SafeArea(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
             child: Column(
@@ -162,7 +183,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       return 'Please enter your password';
                     }
                     if (!_isValidPassword(value)) {
-                      return 'Password must be at least 8 characters, with 1 letter and 1 number';
+                      return 'Password must be at least 8 characters, with 1 letter \n and 1 number';
                     }
                     return null;
                   },

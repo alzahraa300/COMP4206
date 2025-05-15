@@ -6,6 +6,7 @@ import 'budget.dart';
 import 'home.dart';
 
 class ReportsScreen extends StatelessWidget {
+  String uid='';
   final String userName; // Add this parameter
   ReportsScreen({Key? key, required this.userName}) : super(key: key);
   final double totalIncome = 1500;
@@ -69,7 +70,7 @@ class ReportsScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(userName: userName), // Pass userName
+                builder: (context) => HomeScreen(uid: uid), // Pass userName
               ),
             );
           } else if (index == 1) {
@@ -81,7 +82,7 @@ class ReportsScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => BudgetScreen(userName: userName),
+                builder: (context) => BudgetScreen(uid: uid),
               ),
             );
           } else if (index == 3) {

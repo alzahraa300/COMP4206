@@ -1,41 +1,51 @@
+import 'package:project_part1/models/budget_page_category.dart';
 import 'package:project_part1/pages/reports.dart';
 import 'package:project_part1/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../widgets/budget_card.dart';
-import '../models/budget_category.dart';
-import '../widgets/budget_summary_item.dart';
+import '../services/budget_services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'budget.dart';
 import 'login.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String userName;
+  final String uid;
 
-  const HomeScreen({Key? key, required this.userName}) : super(key: key);
+  const HomeScreen({Key? key, required this.uid}) : super(key: key);
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<BudgetCategory> budgetCategories = [
-    BudgetCategory(name: 'Groceries', spent: 200.00, total: 300.00),
-    BudgetCategory(name: 'Entertainment', spent: 100.00, total: 150.00),
-    BudgetCategory(name: 'Transportation', spent: 50.00, total: 100.00),
-  ];
+  String fullName = '';
+  String email = '';
 
-  void _addCategory(String name, double spent, double total) {
-    setState(() {
-      budgetCategories.add(BudgetCategory(name: name, spent: spent, total: total));
-    });
+  @override
+  void initState() {
+    super.initState();
+    fetchUserInfo();
   }
 
-  // Refresh budget data (placeholder for actual data refresh logic)
-  Future<void> _refreshBudgets() async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-    setState(() {
-      // Optionally update budgetCategories here with fresh data
-    });
+  Future<void> fetchUserInfo() async {
+    try {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(widget.uid)
+          .get();
+
+      if (userDoc.exists) {
+        setState(() {
+          String firstName = userDoc['firstName'] ?? '';
+          String lastName = userDoc['lastName'] ?? '';
+          fullName = '$firstName $lastName';
+          email = userDoc['email'] ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching user info: $e');
+    }
   }
 
   static const List<BottomNavigationBarItem> _navItems = [
@@ -70,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ScaffoldMessenger.of(context).showMaterialBanner(
                       MaterialBanner(
                         content: Text(
-                          'Welcome, ${widget.userName}!',
+                          'Welcome, ${fullName}!',
                           style: TextStyle(color: AppConstants.textColor),
                         ),
                         backgroundColor: AppConstants.primaryColor.withOpacity(0.9),
@@ -95,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  widget.userName,
+                  fullName,
                   style: TextStyle(color: AppConstants.accentColor),
                 ),
               ],
@@ -132,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
               DrawerHeader(
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage('assets/images/drawer_background.jpg'), // Add this asset to your project
+                    image: AssetImage('assets/images/drawer_background.jpg'),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
                       Colors.black.withOpacity(0.3),
@@ -155,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      widget.userName,
+                      fullName,
                       style: TextStyle(
                         color: AppConstants.textColor,
                         fontSize: 20,
@@ -163,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     Text(
-                      '${widget.userName.toLowerCase()}@gmail.com', // Placeholder email
+                      email, // Placeholder email
                       style: TextStyle(
                         color: AppConstants.textColor.withOpacity(0.7),
                         fontSize: 14,
@@ -201,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => BudgetScreen(userName: widget.userName),
+                      builder: (context) => BudgetScreen(uid: widget.uid),
                     ),
                   );
                 },
@@ -214,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                   context,
                   MaterialPageRoute(
-                  builder: (context) => ReportsScreen (userName: widget.userName),
+                  builder: (context) => ReportsScreen (userName: fullName),
                   ),
                   );
                   },
@@ -234,9 +244,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshBudgets,
-        color: AppConstants.accentColor,
+      body: SafeArea(
+//        onRefresh: _refreshBudgets,
+  //      color: AppConstants.accentColor,
         child: ListView(
           padding: const EdgeInsets.all(20.0),
           children: [
@@ -273,26 +283,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 15),
-                  budgetCategories.isEmpty
-                      ? Center(
-                    child: Text(
-                      'No budget categories added yet.',
-                      style: TextStyle(
-                        color: AppConstants.textColor.withOpacity(0.6),
-                        fontSize: 16,
-                      ),
-                    ),
-                  )
-                      : Column(
-                    children: budgetCategories.map((category) => Column(
-                      children: [
-                        BudgetSummaryItem(category: category),
-                        Divider(
-                          color: AppConstants.textColor.withOpacity(0.2),
-                          thickness: 1,
-                        ),
-                      ],
-                    )).toList(),
+                  StreamBuilder<List<BudgetPageCategory>>(
+                    stream: getBudgets(widget.uid),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return CircularProgressIndicator();
+                      } else if (snapshot.hasError) {
+                        return Text("Error: ${snapshot.error}");
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return Text("No budgets found", style: TextStyle(color: Colors.white));
+                      }
+
+                      final budgets = snapshot.data!;
+
+                      return Column(
+                        children: budgets.map((budget) =>
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${budget.category}: \$${budget.spent.toStringAsFixed(2)} / \$${budget.limit.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: AppConstants.textColor,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: (budget.spent / budget.limit).clamp(0.0, 1.0),
+                                backgroundColor: Colors.grey[300],
+                                valueColor: AlwaysStoppedAnimation<Color>(AppConstants.accentColor),
+                                minHeight: 8,
+                              ),
+                            Divider(
+                              color: AppConstants.textColor.withOpacity(
+                                  0.2),
+                              thickness: 1,
+                            ),
+                          ],
+                          )).toList(),
+                      );
+                    }
                   ),
                 ],
               ),
@@ -321,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => BudgetScreen(userName: widget.userName),
+                builder: (context) => BudgetScreen(uid: widget.uid),
               ),
             );
           } else if (index == 3) {
@@ -329,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               MaterialPageRoute(
                 //change to report
-                builder: (context) =>  ReportsScreen(userName: widget.userName),
+                builder: (context) =>  ReportsScreen(userName: fullName),
               ),
             );
           }
@@ -342,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => BudgetScreen(userName: widget.userName),
+              builder: (context) => BudgetScreen(uid: widget.uid),
             ),
           );
         },
