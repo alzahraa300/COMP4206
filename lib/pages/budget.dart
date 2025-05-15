@@ -242,7 +242,7 @@ class _BudgetState extends State<BudgetScreen> {
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TransactionScreen()),
+              MaterialPageRoute(builder: (context) => TransactionScreen(uid: widget.uid)),
             );
           } else if (index == 2) {
             ScaffoldMessenger.of(context).showSnackBar(

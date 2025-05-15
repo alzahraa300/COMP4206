@@ -2,21 +2,24 @@ import 'package:project_part1/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../constants/app_constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/budget_page_category.dart';
+import '../services/budget_services.dart';
 import 'budget.dart';
 import 'home.dart';
 
-class ReportsScreen extends StatelessWidget {
-  String uid='';
-  final String userName; // Add this parameter
-  ReportsScreen({Key? key, required this.userName}) : super(key: key);
+class ReportsScreen extends StatefulWidget {
+  final String uid;
+
+  const ReportsScreen({Key? key, required this.uid}) : super(key: key);
+
+  @override
+  _ReportsScreenState createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
   final double totalIncome = 1500;
   final double totalExpenses = 600;
-
-  final Map<String, double> categorySpending = {
-    'Groceries': 300,
-    'Entertainment': 100,
-    'Utilities': 200,
-  };
 
   // BottomNavigationBar items extracted as a constant for reusability
   static const List<BottomNavigationBarItem> _navItems = [
@@ -70,19 +73,19 @@ class ReportsScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(uid: uid), // Pass userName
+                builder: (context) => HomeScreen(uid: widget.uid), // Pass userName
               ),
             );
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TransactionScreen()),
+              MaterialPageRoute(builder: (context) => TransactionScreen(uid: widget.uid)),
             );
           } else if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => BudgetScreen(uid: uid),
+                builder: (context) => BudgetScreen(uid: widget.uid),
               ),
             );
           } else if (index == 3) {
@@ -96,63 +99,99 @@ class ReportsScreen extends StatelessWidget {
   }
 
   Widget _buildPieChart(BuildContext context) {
-    final total = categorySpending.values.reduce((a, b) => a + b);
-    return Card(
-      color: Colors.blue.shade300,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            Text("Spending Breakdown by Category", style: TextStyle(color: AppConstants.textColor, fontWeight: FontWeight.bold)),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: categorySpending.entries.map((entry) {
-                    final percent = entry.value / total;
-                    return PieChartSectionData(
-                      value: entry.value,
-                      title: '${(percent * 100).toStringAsFixed(1)}%',
-                      color: Colors.primaries[categorySpending.keys.toList().indexOf(entry.key) % Colors.primaries.length],
-                      radius: 50,
-                    );
-                  }).toList(),
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 30,
+    return StreamBuilder<List<BudgetPageCategory>>(
+      stream: getBudgets(widget.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        } else if (snapshot.hasError) {
+          return Text("Error: ${snapshot.error}");
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Text("No budgets found", style: TextStyle(color: Colors.white));
+        }
+
+        final budgets = snapshot.data!;
+        final categorySpending = <String, double>{};
+
+        for (var budget in budgets) {
+          final category = budget.category;
+          final spent = budget.spent;
+          if (categorySpending.containsKey(category)) {
+            categorySpending[category] = categorySpending[category]! + spent;
+          } else {
+            categorySpending[category] = spent;
+          }
+        }
+
+        final total = categorySpending.values.fold(0.0, (a, b) => a + b);
+
+        return Card(
+          color: Colors.blue.shade300,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                Text(
+                  "Spending Breakdown by Category",
+                  style: TextStyle(
+                    color: AppConstants.textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ),
-            SizedBox(height: 20),
-            Wrap(
-              spacing: 10,
-              runSpacing: 6,
-              children: List.generate(categorySpending.length, (index) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.primaries[index % Colors.primaries.length],
-                        shape: BoxShape.circle,
-                      ),
+                SizedBox(
+                  height: 200,
+                  child: PieChart(
+                    PieChartData(
+                      sections: categorySpending.entries.map((entry) {
+                        final percent = entry.value / total;
+                        return PieChartSectionData(
+                          value: entry.value,
+                          title: '${(percent * 100).toStringAsFixed(1)}%',
+                          color: Colors.primaries[
+                          categorySpending.keys.toList().indexOf(entry.key) %
+                              Colors.primaries.length],
+                          radius: 50,
+                        );
+                      }).toList(),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 30,
                     ),
-                    SizedBox(width: 6),
-                    Text(
-                      categorySpending.keys.elementAt(index),
-                      style: TextStyle(color: AppConstants.textColor),
-                    ),
-                  ],
-                );
-              }),
+                  ),
+                ),
+                SizedBox(height: 20),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  children: List.generate(categorySpending.length, (index) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: Colors.primaries[index % Colors.primaries.length],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          categorySpending.keys.elementAt(index),
+                          style: TextStyle(color: AppConstants.textColor),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
+
 
   Widget _buildBarChart(BuildContext context, netSavings) {
     return Card(

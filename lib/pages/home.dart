@@ -6,6 +6,7 @@ import '../constants/app_constants.dart';
 import '../widgets/budget_card.dart';
 import '../services/budget_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/transaction_service.dart';
 import 'budget.dart';
 import 'login.dart';
 
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final TransactionService _transactionService = TransactionService();
   String fullName = '';
   String email = '';
 
@@ -199,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const TransactionScreen()),
+                    MaterialPageRoute(builder: (context) => TransactionScreen(uid: widget.uid)),
                   );
                 },
               ),
@@ -224,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                   context,
                   MaterialPageRoute(
-                  builder: (context) => ReportsScreen (userName: fullName),
+                  builder: (context) => ReportsScreen (uid: widget.uid),
                   ),
                   );
                   },
@@ -250,9 +252,33 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20.0),
           children: [
-            const BudgetCard(title: 'Income', value: 'OMR 1500.00'),
+            FutureBuilder<double>(
+              future: _transactionService.getTotalIncome(widget.uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return BudgetCard(title: 'Income', value: 'Loading...');
+                }
+                if (snapshot.hasError) {
+                  return BudgetCard(title: 'Income', value: 'Error');
+                }
+                final income = snapshot.data?.toStringAsFixed(2) ?? '0.00';
+                return BudgetCard(title: 'Income', value: 'OMR $income');
+              },
+            ),
             const SizedBox(height: 20),
-            const BudgetCard(title: 'Expenses', value: 'OMR 350.00'),
+            FutureBuilder<double>(
+              future: _transactionService.getTotalExpense(widget.uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return BudgetCard(title: 'Expenses', value: 'Loading...');
+                }
+                if (snapshot.hasError) {
+                  return BudgetCard(title: 'Expenses', value: 'Error');
+                }
+                final expenses = snapshot.data?.toStringAsFixed(2) ?? '0.00';
+                return BudgetCard(title: 'Expenses', value: 'OMR $expenses');
+              },
+            ),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16.0),
@@ -346,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TransactionScreen()),
+              MaterialPageRoute(builder: (context) => TransactionScreen(uid: widget.uid)),
             );
           } else if (index == 2) {
             Navigator.push(
@@ -360,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               MaterialPageRoute(
                 //change to report
-                builder: (context) =>  ReportsScreen(userName: fullName),
+                builder: (context) =>  ReportsScreen(uid: widget.uid),
               ),
             );
           }
