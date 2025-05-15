@@ -1,8 +1,11 @@
-import 'package:comp4206ver3/pages/login.dart';
+import 'package:project_part1/pages/login.dart';
 import 'package:flutter/material.dart';
 import 'constants/app_constants.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+Future<void> main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const PersonalFinanceTrackerApp());
 }
 

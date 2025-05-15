@@ -1,4 +1,4 @@
-import 'package:comp4206ver3/pages/transaction.dart';
+import 'package:project_part1/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../constants/app_constants.dart';

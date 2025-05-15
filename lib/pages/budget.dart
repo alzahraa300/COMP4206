@@ -1,11 +1,13 @@
-import 'package:comp4206ver3/pages/reports.dart';
-import 'package:comp4206ver3/pages/transaction.dart';
+import 'package:project_part1/pages/reports.dart';
+import 'package:project_part1/pages/transaction.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 //import '../pages/transaction.dart';
 import '../models/budget_page_category.dart';
 import '../pages/add_budget.dart';
 import '../pages/confirmation.dart';
+import '../services/budget_services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home.dart';
 
 class BudgetScreen extends StatefulWidget {
@@ -16,11 +18,6 @@ class BudgetScreen extends StatefulWidget {
 }
 
 class _BudgetState extends State<BudgetScreen> {
-  List<BudgetPageCategory> budgets = [
-    BudgetPageCategory(category: 'Groceries', limit: 300, spent: 400),
-    BudgetPageCategory(category: 'Entertainment', limit: 100, spent: 70),
-    BudgetPageCategory(category: 'Utilities', limit: 200, spent: 150),
-  ];
 
   String? selectedCategory;
   bool _hasShownExceededAlert = false;
@@ -53,30 +50,30 @@ class _BudgetState extends State<BudgetScreen> {
     );
   }
 
-  void _addNewBudget(BudgetPageCategory category) {
-    setState(() {
-      budgets.add(category);
-    });
+  void _deleteBudget() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('BudgetPageCategory')
+          .where('category', isEqualTo: selectedCategory).get();
+      if (snapshot.docs.isNotEmpty) {
+        for (var doc in snapshot.docs) {
+          await doc.reference.delete(); //delete one document
+          SnackBarMessenger(context, "Deleted ${selectedCategory} budget successfully.");
+        }
+      } else {  print('No budget found with category: $selectedCategory');  }
+    } catch (e) { print('Error deleting budget: $e');  }
   }
 
-  void _deleteBudget() {
-    if (selectedCategory != null) {
-      setState(() {
-        budgets.removeWhere((item) => item.category == selectedCategory);
-        selectedCategory = null;
-      });
-      SnackBarMessenger(context, "Budget Deleted Successfully");
-    }
-  }
 
   void _showAddBudgetForm() async {
-    final existingCategories = budgets.map((b) => b.category.trim()).toSet();
+    List<String> existingCategories = [];
+
+    existingCategories = await getAllCategoryNames();
+    setState(() {}); // if you're in a StatefulWidget
 
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => NewBudgetForm(
-          onSubmit: _addNewBudget,
           existingCategories: existingCategories,
         ),
       ),
@@ -96,11 +93,6 @@ class _BudgetState extends State<BudgetScreen> {
     }
   }
 
-  void _editBudget() {
-    if (selectedCategory != null) {
-      // logic to edit
-    }
-  }
 
   // BottomNavigationBar items extracted as a constant for reusability
   static const List<BottomNavigationBarItem> _navItems = [
@@ -115,7 +107,7 @@ class _BudgetState extends State<BudgetScreen> {
     return Scaffold(
       backgroundColor: AppConstants.primaryColor,
       appBar: AppBar(
-        title: const Text('Budget Managment', style: TextStyle(color: AppConstants.textColor)),
+        title: const Text('Budget Management', style: TextStyle(color: AppConstants.textColor)),
         backgroundColor: AppConstants.primaryColor,
         elevation: 0,
         leading: IconButton(
@@ -144,7 +136,24 @@ class _BudgetState extends State<BudgetScreen> {
                 children: [
                   _buildTableHeader(),
                   Divider(color: Colors.white),
-                  ...budgets.map((item) => _buildTableRow(item)).toList(),
+                  StreamBuilder<List<BudgetPageCategory>>(
+                    stream: getBudgets(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return CircularProgressIndicator();
+                      } else if (snapshot.hasError) {
+                        return Text("Error: ${snapshot.error}");
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return Text("No budgets found", style: TextStyle(color: Colors.white));
+                      }
+
+                      final budgets = snapshot.data!;
+
+                      return Column(
+                        children: budgets.map((item) => _buildTableRow(item)).toList(),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -153,13 +162,6 @@ class _BudgetState extends State<BudgetScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _editBudget,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-                        child: Text("Edit", style: TextStyle(color: AppConstants.textColor),),
-                      ),
-                    ),
                     SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton(

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/budget_page_category.dart';
 import '../constants/app_constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 
 class NewBudgetForm extends StatefulWidget {
-  final Function(BudgetPageCategory) onSubmit;
-  final Set<String> existingCategories;
+  final List<String> existingCategories;
 
-  NewBudgetForm({required this.onSubmit, required this.existingCategories});
+  NewBudgetForm({required this.existingCategories});
 
   @override
   _NewBudgetFormState createState() => _NewBudgetFormState();
@@ -18,11 +18,20 @@ class _NewBudgetFormState extends State<NewBudgetForm> {
   String _category = '';
   double _limit = 0.0;
 
+  void add_new_budget(newBudget){
+    FirebaseFirestore.instance.collection('BudgetPageCategory')
+      .doc().set(newBudget.toMap()).then<void>((dynamic doc) {
+      print('Budget added: $doc');
+    }).catchError((dynamic error) {
+      print('Error! $error');
+    });
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      widget.onSubmit(
-          BudgetPageCategory(category: _category, limit: _limit, spent: 0.0));
+      BudgetPageCategory newBudget = BudgetPageCategory(category: _category, limit: _limit, spent: 0.0);
+      add_new_budget(newBudget);
       Navigator.pop(context, true);
     }
   }
