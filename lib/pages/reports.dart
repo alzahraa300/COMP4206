@@ -19,8 +19,9 @@ class ReportsScreen extends StatefulWidget {
   _ReportsScreenState createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProviderStateMixin {
   final TransactionService _transactionService = TransactionService(); // Initialize TransactionService
+  late TabController _tabController;
 
   // BottomNavigationBar items extracted as a constant for reusability
   static const List<BottomNavigationBarItem> _navItems = [
@@ -31,100 +32,45 @@ class _ReportsScreenState extends State<ReportsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppConstants.primaryColor,
       appBar: AppBar(
         title: Text("Financial Insights & Reports", style: TextStyle(color: AppConstants.textColor, fontWeight: FontWeight.bold)),
         backgroundColor: AppConstants.primaryColor,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Visual Summary", style: _sectionTitleStyle),
-            SizedBox(height: 10),
-            _buildPieChart(context),
-            SizedBox(height: 10),
-            StreamBuilder<double>(
-              stream: _transactionService.getTotalIncome(widget.uid),
-              builder: (context, incomeSnapshot) {
-                return StreamBuilder<double>(
-                  stream: _transactionService.getTotalExpense(widget.uid),
-                  builder: (context, expenseSnapshot) {
-                    if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final double totalIncome = incomeSnapshot.data!;
-                    final double totalExpenses = expenseSnapshot.data!;
-                    final double netSavings = totalIncome - totalExpenses;
-
-                    return _buildBarChart(context, totalIncome, totalExpenses, netSavings);
-                  },
-                );
-              },
-            ),
-            SizedBox(height: 30),
-            Text("Detailed Financial Report", style: _sectionTitleStyle),
-            SizedBox(height: 10),
-            StreamBuilder<double>(
-              stream: _transactionService.getTotalIncome(widget.uid),
-              builder: (context, incomeSnapshot) {
-                return StreamBuilder<double>(
-                  stream: _transactionService.getTotalExpense(widget.uid),
-                  builder: (context, expenseSnapshot) {
-                    if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final double totalIncome = incomeSnapshot.data!;
-                    final double totalExpenses = expenseSnapshot.data!;
-                    final double netSavings = totalIncome - totalExpenses;
-                    final double spendingPercentage = (totalExpenses / totalIncome) * 100;
-
-                    return _buildFinancialSummary(spendingPercentage, totalIncome, totalExpenses, netSavings);
-                  },
-                );
-              },
-            ),
-            SizedBox(height: 30),
-            Text("Actionable Insights", style: _sectionTitleStyle),
-            SizedBox(height: 10),
-            StreamBuilder<double>(
-              stream: _transactionService.getTotalIncome(widget.uid),
-              builder: (context, incomeSnapshot) {
-                return StreamBuilder<double>(
-                  stream: _transactionService.getTotalExpense(widget.uid),
-                  builder: (context, expenseSnapshot) {
-                    if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final double totalIncome = incomeSnapshot.data!;
-                    final double totalExpenses = expenseSnapshot.data!;
-
-                    return _buildInsights(totalIncome, totalExpenses);
-                  },
-                );
-              },
-            ),
-
-            SizedBox(height: 30),
-
-            // New Section: ListView for Recent Transactions
-            Text("Recent Transactions", style: _sectionTitleStyle),
-            SizedBox(height: 10),
-            _buildTransactionList(),
-            SizedBox(height: 30),
-
-            // New Section: GridView for Budget Categories
-            Text("Budget Categories", style: _sectionTitleStyle),
-            SizedBox(height: 10),
-            _buildCategoryGrid(),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.amber,
+          labelColor: Colors.amber,
+          unselectedLabelColor: AppConstants.textColor,
+          tabs: const [
+            Tab(icon: Icon(Icons.pie_chart), text: "Overview"),
+            Tab(icon: Icon(Icons.bar_chart), text: "Charts"),
+            Tab(icon: Icon(Icons.receipt_long), text: "Transactions"),
+            Tab(icon: Icon(Icons.analytics), text: "Categories"),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildOverviewTab(),
+          _buildChartsTab(),
+          _buildTransactionsTab(),
+          _buildCategoriesTab(),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -162,6 +108,134 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  // Tab 1: Overview Tab
+  Widget _buildOverviewTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Financial Summary", style: _sectionTitleStyle),
+          SizedBox(height: 10),
+          StreamBuilder<double>(
+            stream: _transactionService.getTotalIncome(widget.uid),
+            builder: (context, incomeSnapshot) {
+              return StreamBuilder<double>(
+                stream: _transactionService.getTotalExpense(widget.uid),
+                builder: (context, expenseSnapshot) {
+                  if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final double totalIncome = incomeSnapshot.data!;
+                  final double totalExpenses = expenseSnapshot.data!;
+                  final double netSavings = totalIncome - totalExpenses;
+                  final double spendingPercentage = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
+
+                  return _buildFinancialSummary(spendingPercentage, totalIncome, totalExpenses, netSavings);
+                },
+              );
+            },
+          ),
+          SizedBox(height: 20),
+          Text("Actionable Insights", style: _sectionTitleStyle),
+          SizedBox(height: 10),
+          StreamBuilder<double>(
+            stream: _transactionService.getTotalIncome(widget.uid),
+            builder: (context, incomeSnapshot) {
+              return StreamBuilder<double>(
+                stream: _transactionService.getTotalExpense(widget.uid),
+                builder: (context, expenseSnapshot) {
+                  if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final double totalIncome = incomeSnapshot.data!;
+                  final double totalExpenses = expenseSnapshot.data!;
+
+                  return _buildInsights(totalIncome, totalExpenses);
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tab 2: Charts Tab
+  Widget _buildChartsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Spending Breakdown", style: _sectionTitleStyle),
+          SizedBox(height: 10),
+          _buildPieChart(context),
+          SizedBox(height: 20),
+          Text("Income vs Expenses", style: _sectionTitleStyle),
+          SizedBox(height: 10),
+          StreamBuilder<double>(
+            stream: _transactionService.getTotalIncome(widget.uid),
+            builder: (context, incomeSnapshot) {
+              return StreamBuilder<double>(
+                stream: _transactionService.getTotalExpense(widget.uid),
+                builder: (context, expenseSnapshot) {
+                  if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final double totalIncome = incomeSnapshot.data!;
+                  final double totalExpenses = expenseSnapshot.data!;
+                  final double netSavings = totalIncome - totalExpenses;
+
+                  return _buildBarChart(context, totalIncome, totalExpenses, netSavings);
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tab 3: Transactions Tab
+  Widget _buildTransactionsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Recent Transactions", style: _sectionTitleStyle),
+          SizedBox(height: 10),
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7, // Adjusted height for better scrolling
+            child: _buildTransactionList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tab 4: Categories Tab
+  Widget _buildCategoriesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Budget Categories", style: _sectionTitleStyle),
+          SizedBox(height: 10),
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7, // Adjusted height for better scrolling
+            child: _buildCategoryGrid(),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Existing Methods (Unchanged)
   Widget _buildPieChart(BuildContext context) {
     return StreamBuilder<List<BudgetPageCategory>>(
@@ -172,7 +246,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         } else if (snapshot.hasError) {
           return Text("Error: ${snapshot.error}");
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Text("No budgets found", style: TextStyle(color: Colors.white));
+          return Text("No budgets found", style: TextStyle(color: AppConstants.textColor));
         }
 
         final budgets = snapshot.data!;
@@ -347,12 +421,38 @@ class _ReportsScreenState extends State<ReportsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Text(
-          'Total Income: \$${totalIncome.toStringAsFixed(2)}\n'
-              'Total Expenses: \$${totalExpenses.toStringAsFixed(2)}\n'
-              'Remaining Balance: \$${netSavings.toStringAsFixed(2)}\n'
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Financial Summary',
+              style: TextStyle(
+                color: AppConstants.textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Total Income: \$${totalIncome.toStringAsFixed(2)}',
+              style: TextStyle(color: AppConstants.textColor),
+            ),
+            Text(
+              'Total Expenses: \$${totalExpenses.toStringAsFixed(2)}',
+              style: TextStyle(color: AppConstants.textColor),
+            ),
+            Text(
+              'Remaining Balance: \$${netSavings.toStringAsFixed(2)}',
+              style: TextStyle(
+                color: netSavings >= 0 ? Colors.green : Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
               'Financial Health: ${spendingPercentage.toStringAsFixed(1)}% of income spent',
-          style: TextStyle(color: AppConstants.textColor),
+              style: TextStyle(color: AppConstants.textColor),
+            ),
+          ],
         ),
       ),
     );
@@ -379,6 +479,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tip.key,
                   style: TextStyle(
@@ -403,50 +504,48 @@ class _ReportsScreenState extends State<ReportsScreen> {
           return CircularProgressIndicator();
         }
         if (snapshot.hasError) {
-          return Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.white));
+          return Text("Error: ${snapshot.error}", style: TextStyle(color: AppConstants.textColor));
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Text("No transactions found", style: TextStyle(color: Colors.white));
+          return Text("No transactions found", style: TextStyle(color: AppConstants.textColor));
         }
 
         final transactions = snapshot.data!.docs;
 
-        return Container(
-          height: 200, // Fixed height for the ListView
-          child: ListView.builder(
-            itemCount: transactions.length,
-            itemBuilder: (context, index) {
-              final transaction = transactions[index].data() as Map<String, dynamic>;
-              final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
-              final type = transaction['transactionType'] as String? ?? 'Unknown';
-              final category = transaction['category'] as String? ?? 'Uncategorized';
-              final date = (transaction['transactionDate'] as Timestamp?)?.toDate() ?? DateTime.now();
-              final description = transaction['description'] as String? ?? 'No description';
+        return ListView.builder(
+          physics: BouncingScrollPhysics(),
+          itemCount: transactions.length,
+          itemBuilder: (context, index) {
+            final transaction = transactions[index].data() as Map<String, dynamic>;
+            final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
+            final type = transaction['transactionType'] as String? ?? 'Unknown';
+            final category = transaction['category'] as String? ?? 'Uncategorized';
+            final date = (transaction['transactionDate'] as Timestamp?)?.toDate() ?? DateTime.now();
+            final description = transaction['description'] as String? ?? 'No description';
 
-              return Card(
-                color: Colors.blue.shade200,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                margin: EdgeInsets.symmetric(vertical: 4),
-                child: ListTile(
-                  leading: Icon(
-                    type == 'Income' ? Icons.arrow_downward : Icons.arrow_upward,
-                    color: type == 'Income' ? Colors.green : Colors.red,
-                  ),
-                  title: Text(
-                    '$type: \$${amount.toStringAsFixed(2)}',
-                    style: TextStyle(color: AppConstants.textColor),
-                  ),
-                  subtitle: Text(
-                    'Category: $category\nDate: ${DateFormat('dd/MM/yyyy').format(date)}',
-                    style: TextStyle(color: AppConstants.textColor.withOpacity(0.7)),
-                  ),
-                  onTap: () {
-                    _showTransactionDetails(context, transaction);
-                  },
+            return Card(
+              color: Colors.blue.shade200,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                leading: Icon(
+                  type == 'Income' ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: type == 'Income' ? Colors.green : Colors.red,
                 ),
-              );
-            },
-          ),
+                title: Text(
+                  '$type: \$${amount.toStringAsFixed(2)}',
+                  style: TextStyle(color: AppConstants.textColor),
+                ),
+                subtitle: Text(
+                  'Category: $category\nDate: ${DateFormat('dd/MM/yyyy').format(date)}',
+                  style: TextStyle(color: AppConstants.textColor.withOpacity(0.7)),
+                ),
+                onTap: () {
+                  _showTransactionDetails(context, transaction);
+                },
+              ),
+            );
+          },
         );
       },
     );
@@ -461,61 +560,76 @@ class _ReportsScreenState extends State<ReportsScreen> {
           return CircularProgressIndicator();
         }
         if (snapshot.hasError) {
-          return Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.white));
+          return Text("Error: ${snapshot.error}", style: TextStyle(color: AppConstants.textColor));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Text("No budgets found", style: TextStyle(color: Colors.white));
+          return Text("No budgets found", style: TextStyle(color: AppConstants.textColor));
         }
 
         final budgets = snapshot.data!;
 
-        return Container(
-          height: 200, // Fixed height for the GridView
-          child: GridView.builder(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, // 2 items per row
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.5, // Adjust the aspect ratio for better appearance
-            ),
-            itemCount: budgets.length,
-            itemBuilder: (context, index) {
-              final budget = budgets[index];
-              return Card(
-                color: Colors.blue.shade200,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: InkWell(
-                  onTap: () {
-                    _showCategoryDetails(context, budget);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          budget.category,
-                          style: TextStyle(
-                            color: AppConstants.textColor,
-                            fontWeight: FontWeight.bold,
-                          ),
+        return GridView.builder(
+          physics: BouncingScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, // 2 items per row
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.2, // Adjusted for better appearance
+          ),
+          itemCount: budgets.length,
+          itemBuilder: (context, index) {
+            final budget = budgets[index];
+            final percentUsed = budget.limit > 0 ? (budget.spent / budget.limit) * 100 : 0;
+
+            return Card(
+              color: Colors.blue.shade200,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: InkWell(
+                onTap: () {
+                  _showCategoryDetails(context, budget);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        budget.category,
+                        style: TextStyle(
+                          color: AppConstants.textColor,
+                          fontWeight: FontWeight.bold,
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Spent: \$${budget.spent.toStringAsFixed(2)}',
-                          style: TextStyle(color: AppConstants.textColor),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: budget.limit > 0 ? budget.spent / budget.limit : 0,
+                          backgroundColor: Colors.blue.shade100,
+                          color: percentUsed > 100 ? Colors.red : Colors.green,
+                          minHeight: 10,
                         ),
-                        Text(
-                          'Limit: \$${budget.limit.toStringAsFixed(2)}',
-                          style: TextStyle(color: AppConstants.textColor),
-                        ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '${percentUsed.toStringAsFixed(1)}% Used',
+                        style: TextStyle(color: AppConstants.textColor),
+                      ),
+                      Text(
+                        'Spent: \$${budget.spent.toStringAsFixed(2)}',
+                        style: TextStyle(color: AppConstants.textColor),
+                      ),
+                      Text(
+                        'Limit: \$${budget.limit.toStringAsFixed(2)}',
+                        style: TextStyle(color: AppConstants.textColor),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         );
       },
     );
