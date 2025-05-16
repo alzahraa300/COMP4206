@@ -75,8 +75,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           MaterialPageRoute(builder: (context) => LoginScreen(fullName: fullName)),
         );
       } catch (e) {
+        final errorMessage = e.toString().contains('email-already-in-use')
+            ? 'An account with this email already exists.'
+            : 'Signup failed: $e';
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Signup failed: $e')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
     } else {
