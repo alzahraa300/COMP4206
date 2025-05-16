@@ -16,20 +16,19 @@ class TransactionService {
     required String category,
     required String uid,
   }) async {
-    final transaction = Transactions(
-      transaction_id: const Uuid().v4(),
-      amount: amount,
-      description: description,
-      payment_method: paymentMethod,
-      transaction_date: transactionDate,
-      transaction_type: transactionType,
-      uid: uid, // Removed authentication dependency
-    );
-
     await _firestore
-        .collection(_transactionsCollection)
-        .doc(transaction.transaction_id)
-        .set(transaction.toMap());
+        .collection('users')
+        .doc(uid)
+        .collection('transactions')
+        .add({
+      'amount': amount,
+      'description': description,
+      'paymentMethod': paymentMethod,
+      'transactionDate': Timestamp.fromDate(transactionDate),
+      'transactionType': transactionType, // "Income" or "Expense"
+      'category': category,
+      'uid': uid,
+    });
   }
 
   Future<List<Transactions>> getTransactions() async {
@@ -61,39 +60,51 @@ class TransactionService {
 
   }
 
-
-
-  Future<double> getTotalIncome(String uid) async {
-    final snapshot = await FirebaseFirestore.instance
+  Stream<double> getTotalIncome(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
         .collection('transactions')
-        .where('uid', isEqualTo: uid)
-        .where('transaction_type', isEqualTo: 'income')
-        .get();
+        .where('transactionType', isEqualTo: 'Income')
+        .snapshots()
+        .map((snapshot) {
+      double total = 0.0;
+      for (var doc in snapshot.docs) {
+        final amount = (doc['amount'] as num?)?.toDouble() ?? 0.0;
+        total += amount;
+      }
+      print('Income total: $total'); // Debug
+      return total;
+    });
+  }
 
-    double totalIncome = 0.0;
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
-      totalIncome += amount;
-    }
-
-    return totalIncome;
+  Stream<double> getTotalExpense(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('transactions')
+        .where('transactionType', isEqualTo: 'Expense')
+        .snapshots()
+        .map((snapshot) {
+      double total = 0.0;
+      for (var doc in snapshot.docs) {
+        final amount = (doc['amount'] as num?)?.toDouble() ?? 0.0;
+        total += amount;
+      }
+      print('Expense total: $total'); // Debug
+      return total;
+    });
+  }
+  Stream<QuerySnapshot> getTransactionsStream(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('transactions')
+        .orderBy('transactionDate', descending: true) // Sort by date, newest first
+        .limit(10) // Limit to 10 recent transactions
+        .snapshots();
   }
 
 
-  Future<double> getTotalExpense(String uid) async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('transactions')
-        .where('uid', isEqualTo: uid)
-        .where('transaction_type', isEqualTo: 'expense')
-        .get();
 
-    double totalExpense = 0.0;
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
-      totalExpense += amount;
-    }
-
-    return totalExpense;
-  }}
+}

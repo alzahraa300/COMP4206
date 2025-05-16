@@ -7,6 +7,8 @@ import '../models/budget_page_category.dart';
 import '../services/budget_services.dart';
 import 'budget.dart';
 import 'home.dart';
+import '../services/transaction_service.dart'; // Import TransactionService
+import 'package:intl/intl.dart'; // For date formatting
 
 class ReportsScreen extends StatefulWidget {
   final String uid;
@@ -18,8 +20,7 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  final double totalIncome = 1500;
-  final double totalExpenses = 600;
+  final TransactionService _transactionService = TransactionService(); // Initialize TransactionService
 
   // BottomNavigationBar items extracted as a constant for reusability
   static const List<BottomNavigationBarItem> _navItems = [
@@ -31,9 +32,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double spendingPercentage = (totalExpenses / totalIncome) * 100;
-    final double netSavings = totalIncome - totalExpenses;
-
     return Scaffold(
       backgroundColor: AppConstants.primaryColor,
       appBar: AppBar(
@@ -48,16 +46,83 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Text("Visual Summary", style: _sectionTitleStyle),
             SizedBox(height: 10),
             _buildPieChart(context),
-            SizedBox(height: 20),
-            _buildBarChart(context, netSavings),
+            SizedBox(height: 10),
+            StreamBuilder<double>(
+              stream: _transactionService.getTotalIncome(widget.uid),
+              builder: (context, incomeSnapshot) {
+                return StreamBuilder<double>(
+                  stream: _transactionService.getTotalExpense(widget.uid),
+                  builder: (context, expenseSnapshot) {
+                    if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final double totalIncome = incomeSnapshot.data!;
+                    final double totalExpenses = expenseSnapshot.data!;
+                    final double netSavings = totalIncome - totalExpenses;
+
+                    return _buildBarChart(context, totalIncome, totalExpenses, netSavings);
+                  },
+                );
+              },
+            ),
             SizedBox(height: 30),
             Text("Detailed Financial Report", style: _sectionTitleStyle),
             SizedBox(height: 10),
-            _buildFinancialSummary(spendingPercentage, netSavings),
+            StreamBuilder<double>(
+              stream: _transactionService.getTotalIncome(widget.uid),
+              builder: (context, incomeSnapshot) {
+                return StreamBuilder<double>(
+                  stream: _transactionService.getTotalExpense(widget.uid),
+                  builder: (context, expenseSnapshot) {
+                    if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final double totalIncome = incomeSnapshot.data!;
+                    final double totalExpenses = expenseSnapshot.data!;
+                    final double netSavings = totalIncome - totalExpenses;
+                    final double spendingPercentage = (totalExpenses / totalIncome) * 100;
+
+                    return _buildFinancialSummary(spendingPercentage, totalIncome, totalExpenses, netSavings);
+                  },
+                );
+              },
+            ),
             SizedBox(height: 30),
             Text("Actionable Insights", style: _sectionTitleStyle),
             SizedBox(height: 10),
-            _buildInsights(),
+            StreamBuilder<double>(
+              stream: _transactionService.getTotalIncome(widget.uid),
+              builder: (context, incomeSnapshot) {
+                return StreamBuilder<double>(
+                  stream: _transactionService.getTotalExpense(widget.uid),
+                  builder: (context, expenseSnapshot) {
+                    if (!incomeSnapshot.hasData || !expenseSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final double totalIncome = incomeSnapshot.data!;
+                    final double totalExpenses = expenseSnapshot.data!;
+
+                    return _buildInsights(totalIncome, totalExpenses);
+                  },
+                );
+              },
+            ),
+
+            SizedBox(height: 30),
+
+            // New Section: ListView for Recent Transactions
+            Text("Recent Transactions", style: _sectionTitleStyle),
+            SizedBox(height: 10),
+            _buildTransactionList(),
+            SizedBox(height: 30),
+
+            // New Section: GridView for Budget Categories
+            Text("Budget Categories", style: _sectionTitleStyle),
+            SizedBox(height: 10),
+            _buildCategoryGrid(),
           ],
         ),
       ),
@@ -67,13 +132,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
         selectedItemColor: Colors.amber,
         unselectedItemColor: AppConstants.textColor,
         items: _navItems,
-
         onTap: (index) {
           if (index == 0) {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(uid: widget.uid), // Pass userName
+                builder: (context) => HomeScreen(uid: widget.uid),
               ),
             );
           } else if (index == 1) {
@@ -98,6 +162,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  // Existing Methods (Unchanged)
   Widget _buildPieChart(BuildContext context) {
     return StreamBuilder<List<BudgetPageCategory>>(
       stream: getBudgets(widget.uid),
@@ -192,8 +257,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-
-  Widget _buildBarChart(BuildContext context, netSavings) {
+  Widget _buildBarChart(BuildContext context, double totalIncome, double totalExpenses, double netSavings) {
     return Card(
       color: Colors.blue.shade300,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -202,7 +266,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         child: Column(
           children: [
             Text("Income vs Expense", style: TextStyle(color: AppConstants.textColor, fontWeight: FontWeight.bold)),
-            SizedBox(height:20),
+            SizedBox(height: 20),
             SizedBox(
               height: 200,
               child: BarChart(
@@ -229,8 +293,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(showTitles: false),
                       ),
-                      topTitles: AxisTitles()
-                  ),
+                      topTitles: AxisTitles()),
                   barGroups: [
                     BarChartGroupData(
                       x: 0,
@@ -278,7 +341,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildFinancialSummary(spendingPercentage, netSavings) {
+  Widget _buildFinancialSummary(spendingPercentage, double totalIncome, double totalExpenses, double netSavings) {
     return Card(
       color: Colors.blue.shade300,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -295,31 +358,278 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildInsights() {
+  Widget _buildInsights(double totalIncome, double totalExpenses) {
     Map<String, String> tips = {};
     if (totalExpenses > totalIncome * 0.8) {
-      tips["Warning: You are spending more than 80% of your income."] = "💡Review your spending habits monthly to identify patterns. Recognizing consistent overspending early can help you adjust your behavior before it becomes a serious problem.";
+      tips["Warning: You are spending more than 80% of your income."] =
+      "💡Review your spending habits monthly to identify patterns. Recognizing consistent overspending early can help you adjust your behavior before it becomes a serious problem.";
     } else if (totalExpenses > totalIncome * 0.5) {
-      tips["Good: Try to optimize your expenses further."] = "💡Keep an eye on growing expenses in specific categories over time. Gradually rising bills could signal inefficiencies, waste, or new habits that need attention.";
+      tips["Good: Try to optimize your expenses further."] =
+      "💡Keep an eye on growing expenses in specific categories over time. Gradually rising bills could signal inefficiencies, waste, or new habits that need attention.";
     } else {
-      tips["Excellent: You are managing your finances well!"] = "💡Regularly monitor your overall financial performance, not just individual expenses. Consistent tracking builds awareness and motivates smarter financial decisions.";
+      tips["Excellent: You are managing your finances well!"] =
+      "💡Regularly monitor your overall financial performance, not just individual expenses. Consistent tracking builds awareness and motivates smarter financial decisions.";
     }
 
     return Column(
-      children: tips.entries.map((tip) => Card(
+      children: tips.entries
+          .map((tip) => Card(
         color: Colors.amber[100],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
-          child: Column (
+          child: Column(
             children: [
-              Text(tip.key, style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+              Text(tip.key,
+                  style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic)),
               Text(tip.value, style: TextStyle(color: Colors.black)),
             ],
           ),
         ),
-      )
-      ).toList(),
+      ))
+          .toList(),
+    );
+  }
+
+  // New Method: ListView for Recent Transactions
+  Widget _buildTransactionList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _transactionService.getTransactionsStream(widget.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        }
+        if (snapshot.hasError) {
+          return Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.white));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Text("No transactions found", style: TextStyle(color: Colors.white));
+        }
+
+        final transactions = snapshot.data!.docs;
+
+        return Container(
+          height: 200, // Fixed height for the ListView
+          child: ListView.builder(
+            itemCount: transactions.length,
+            itemBuilder: (context, index) {
+              final transaction = transactions[index].data() as Map<String, dynamic>;
+              final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
+              final type = transaction['transactionType'] as String? ?? 'Unknown';
+              final category = transaction['category'] as String? ?? 'Uncategorized';
+              final date = (transaction['transactionDate'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final description = transaction['description'] as String? ?? 'No description';
+
+              return Card(
+                color: Colors.blue.shade200,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                margin: EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
+                  leading: Icon(
+                    type == 'Income' ? Icons.arrow_downward : Icons.arrow_upward,
+                    color: type == 'Income' ? Colors.green : Colors.red,
+                  ),
+                  title: Text(
+                    '$type: \$${amount.toStringAsFixed(2)}',
+                    style: TextStyle(color: AppConstants.textColor),
+                  ),
+                  subtitle: Text(
+                    'Category: $category\nDate: ${DateFormat('dd/MM/yyyy').format(date)}',
+                    style: TextStyle(color: AppConstants.textColor.withOpacity(0.7)),
+                  ),
+                  onTap: () {
+                    _showTransactionDetails(context, transaction);
+                  },
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // New Method: GridView for Budget Categories
+  Widget _buildCategoryGrid() {
+    return StreamBuilder<List<BudgetPageCategory>>(
+      stream: getBudgets(widget.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        }
+        if (snapshot.hasError) {
+          return Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.white));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Text("No budgets found", style: TextStyle(color: Colors.white));
+        }
+
+        final budgets = snapshot.data!;
+
+        return Container(
+          height: 200, // Fixed height for the GridView
+          child: GridView.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // 2 items per row
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.5, // Adjust the aspect ratio for better appearance
+            ),
+            itemCount: budgets.length,
+            itemBuilder: (context, index) {
+              final budget = budgets[index];
+              return Card(
+                color: Colors.blue.shade200,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: InkWell(
+                  onTap: () {
+                    _showCategoryDetails(context, budget);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          budget.category,
+                          style: TextStyle(
+                            color: AppConstants.textColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Spent: \$${budget.spent.toStringAsFixed(2)}',
+                          style: TextStyle(color: AppConstants.textColor),
+                        ),
+                        Text(
+                          'Limit: \$${budget.limit.toStringAsFixed(2)}',
+                          style: TextStyle(color: AppConstants.textColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // New Method: Show Transaction Details in Bottom Sheet
+  void _showTransactionDetails(BuildContext context, Map<String, dynamic> transaction) {
+    final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
+    final type = transaction['transactionType'] as String? ?? 'Unknown';
+    final category = transaction['category'] as String? ?? 'Uncategorized';
+    final date = (transaction['transactionDate'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final description = transaction['description'] as String? ?? 'No description';
+    final paymentMethod = transaction['paymentMethod'] as String? ?? 'Unknown';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppConstants.primaryColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Transaction Details',
+                style: TextStyle(
+                  color: AppConstants.textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text('Type: $type', style: TextStyle(color: AppConstants.textColor)),
+              Text('Amount: \$${amount.toStringAsFixed(2)}', style: TextStyle(color: AppConstants.textColor)),
+              Text('Category: $category', style: TextStyle(color: AppConstants.textColor)),
+              Text('Date: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}', style: TextStyle(color: AppConstants.textColor)),
+              Text('Payment Method: $paymentMethod', style: TextStyle(color: AppConstants.textColor)),
+              Text('Description: $description', style: TextStyle(color: AppConstants.textColor)),
+              SizedBox(height: 20),
+              Align(
+                alignment: Alignment.center,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Close', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // New Method: Show Category Details in Bottom Sheet
+  void _showCategoryDetails(BuildContext context, BudgetPageCategory budget) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppConstants.primaryColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Category Details',
+                style: TextStyle(
+                  color: AppConstants.textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text('Category: ${budget.category}', style: TextStyle(color: AppConstants.textColor)),
+              Text('Spent: \$${budget.spent.toStringAsFixed(2)}', style: TextStyle(color: AppConstants.textColor)),
+              Text('Limit: \$${budget.limit.toStringAsFixed(2)}', style: TextStyle(color: AppConstants.textColor)),
+              Text(
+                'Remaining: \$${((budget.limit - budget.spent) > 0 ? (budget.limit - budget.spent) : 0).toStringAsFixed(2)}',
+                style: TextStyle(color: AppConstants.textColor),
+              ),
+              Text(
+                'Status: ${budget.spent > budget.limit ? "Over Budget" : "Within Budget"}',
+                style: TextStyle(
+                  color: budget.spent > budget.limit ? Colors.red : Colors.green,
+                ),
+              ),
+              SizedBox(height: 20),
+              Align(
+                alignment: Alignment.center,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Close', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -329,5 +639,3 @@ class _ReportsScreenState extends State<ReportsScreen> {
     color: AppConstants.textColor,
   );
 }
-
-

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_constants.dart';
@@ -17,7 +18,7 @@ class TransactionScreen extends StatefulWidget {
 
 class _TransactionScreenState extends State<TransactionScreen> {
   late final TransactionService _transactionService;
-  String _selectedType = 'Income';
+  String _selectedType = 'Expense';
   final List<String> _types = ['Income', 'Expense'];
 
   final TextEditingController _amountController = TextEditingController();
@@ -25,7 +26,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   final TextEditingController _customCategoryController = TextEditingController();
 
   String? _selectedCategory; // Changed to nullable to handle initial null state
-  List<String> _categories = []; // Initial default categories
+  List<String> _categories = ['No category']; // Initial default categories
 
   String _selectedPaymentMethod = 'Cash';
   final List<String> _paymentMethods = ['Cash', 'Credit Card', 'Bank Transfer'];
@@ -45,7 +46,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   Future<void> _loadCategories() async {
     final budgetCategories = await getAllCategoryNames(widget.uid);
     setState(() {
-      _categories = budgetCategories;
+      _categories = ['No category', ...budgetCategories];
       _selectedCategory = budgetCategories.isNotEmpty ? budgetCategories.first : null;
       _isCategoriesLoading = false;
     });
@@ -144,26 +145,63 @@ class _TransactionScreenState extends State<TransactionScreen> {
     try {
       final amount = double.parse(_amountController.text);
       await _transactionService.addTransaction(
-        amount: amount,
-        description: _descriptionController.text,
-        paymentMethod: _selectedPaymentMethod,
-        transactionDate: _selectedDate,
-        transactionType: _selectedType,
-        category: _selectedCategory!,
-        uid: widget.uid
+          amount: amount,
+          description: _descriptionController.text,
+          paymentMethod: _selectedPaymentMethod,
+          transactionDate: _selectedDate,
+          transactionType: _selectedType,
+          category: _selectedCategory!,
+          uid: widget.uid
       );
+      Future<void> _saveTransaction() async {
+        if (!_formKey.currentState!.validate()) return;
+        if (_selectedCategory == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a category')),
+          );
+          return;
+        }
 
-      final budgets = await getBudgets(widget.uid).first;
-      final selectedBudget = budgets.firstWhere(
-            (budget) => budget.category == _selectedCategory,
-        orElse: () => throw Exception('Selected category not found in budgets.'),
-      );
+        setState(() => _isLoading = true);
+        try {
+          final amount = double.parse(_amountController.text);
+          await _transactionService.addTransaction(
+            amount: amount,
+            description: _descriptionController.text,
+            paymentMethod: _selectedPaymentMethod,
+            transactionDate: _selectedDate,
+            transactionType: _selectedType,
+            category: _selectedCategory!,
+            uid: widget.uid,
+          );
+          print('Transaction added: $_selectedType, $amount, $_selectedCategory'); // Debug
 
-      final newSpent = selectedBudget.spent + amount;
-      final updatedBudget = selectedBudget.copyWith(spent: newSpent);
+          // Rest of the code...
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error saving transaction: $e')),
+            );
+          }
+        } finally {
+          if (mounted) {
+            setState(() => _isLoading = false);
+          }
+        }
+      }
+      if (_selectedCategory!='No category') {
+        final budgets = await getBudgets(widget.uid).first;
+        final selectedBudget = budgets.firstWhere(
+              (budget) => budget.category == _selectedCategory,
+          orElse: () =>
+          throw Exception('Selected category not found in budgets.'),
+        );
 
-      await updateSpent(widget.uid, _selectedCategory!, amount);
+        final newSpent = selectedBudget.spent + amount;
+        final updatedBudget = selectedBudget.copyWith(spent: newSpent);
 
+        await updateSpent(widget.uid, _selectedCategory!, amount);
+      }
 
       if (!mounted) return;
       Navigator.push(
@@ -230,7 +268,18 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         title: const Text('Income', style: TextStyle(color: AppConstants.textColor)),
                         value: 'Income',
                         groupValue: _selectedType,
-                        onChanged: (String? value) => setState(() => _selectedType = value!),
+                        onChanged: (String? value) {
+                          setState(() {
+                            _selectedType = value!;
+                            if (_selectedType == 'Income') {
+                              _selectedCategory = 'No category';
+                            } else if (_categories.length > 1) {
+                              // Avoid setting 'No category' for Expense
+                              _selectedCategory = _categories.firstWhere((c) => c != 'No category', orElse: () => '');
+                            }
+                          });
+                        },
+
                         activeColor: AppConstants.accentColor,
                         contentPadding: EdgeInsets.zero,
                       ),
@@ -240,7 +289,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         title: const Text('Expense', style: TextStyle(color: AppConstants.textColor)),
                         value: 'Expense',
                         groupValue: _selectedType,
-                        onChanged: (String? value) => setState(() => _selectedType = value!),
+                        onChanged: (String? value) {
+                          setState(() {
+                            _selectedType = value!;
+                            if (_selectedType == 'Income') {
+                              _selectedCategory = 'No category';
+                            } else if (_categories.length > 1) {
+                              // Avoid setting 'No category' for Expense
+                              _selectedCategory = _categories.firstWhere((c) => c != 'No category', orElse: () => '');
+                            }
+                          });
+                        },
                         activeColor: AppConstants.accentColor,
                         contentPadding: EdgeInsets.zero,
                       ),
@@ -330,7 +389,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
                       child: Text(category, style: const TextStyle(color: AppConstants.textColor)),
                     );
                   }).toList(),
-                  onChanged: (String? newValue) => setState(() => _selectedCategory = newValue),
+                  onChanged: _selectedType == 'Expense'
+                      ? (String? newValue) => setState(() => _selectedCategory = newValue)
+                      : null,
                   style: const TextStyle(color: AppConstants.textColor),
                   underline: Container(height: 1, color: AppConstants.textColor.withOpacity(0.3)),
                   hint: const Text('Select a category', style: TextStyle(color: AppConstants.textColor)),

@@ -18,9 +18,9 @@ class BudgetScreen extends StatefulWidget {
 }
 
 class _BudgetState extends State<BudgetScreen> {
-
   String? selectedCategory;
   bool _hasShownExceededAlert = false;
+  String _searchQuery = ''; // New: Variable to store the search query
 
   void SnackBarMessenger(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -31,18 +31,19 @@ class _BudgetState extends State<BudgetScreen> {
     );
   }
 
-  void _showBudgetExceededAlert(BuildContext context,String category) {
+  void _showBudgetExceededAlert(BuildContext context, String category) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Budget Exceeded!', style: TextStyle(color: Colors.red),),
+          title: Text('Budget Exceeded!', style: TextStyle(color: Colors.red)),
           content: Text('You have exceeded your budget for $category.'),
           actions: [
-            TextButton( onPressed: () {
-              Navigator.of(context).pop(); // Close the dialog
-            },
-              child: Text('OK', style: TextStyle(color: Colors.red),),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text('OK', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -52,17 +53,22 @@ class _BudgetState extends State<BudgetScreen> {
 
   void _deleteBudget() async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('BudgetPageCategory')
-          .where('category', isEqualTo: selectedCategory).get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('BudgetPageCategory')
+          .where('category', isEqualTo: selectedCategory)
+          .get();
       if (snapshot.docs.isNotEmpty) {
         for (var doc in snapshot.docs) {
           await doc.reference.delete(); //delete one document
           SnackBarMessenger(context, "Deleted ${selectedCategory} budget successfully.");
         }
-      } else {  print('No budget found with category: $selectedCategory');  }
-    } catch (e) { print('Error deleting budget: $e');  }
+      } else {
+        print('No budget found with category: $selectedCategory');
+      }
+    } catch (e) {
+      print('Error deleting budget: $e');
+    }
   }
-
 
   void _showAddBudgetForm() async {
     List<String> existingCategories = [];
@@ -90,10 +96,8 @@ class _BudgetState extends State<BudgetScreen> {
           ),
         ),
       );
-
     }
   }
-
 
   // BottomNavigationBar items extracted as a constant for reusability
   static const List<BottomNavigationBarItem> _navItems = [
@@ -135,6 +139,29 @@ class _BudgetState extends State<BudgetScreen> {
               decoration: AppConstants.gradientDecoration,
               child: Column(
                 children: [
+
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search by category...',
+                        hintStyle: TextStyle(color: AppConstants.textColor.withOpacity(0.5)),
+                        prefixIcon: Icon(Icons.search, color: AppConstants.textColor),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      style: TextStyle(color: AppConstants.textColor),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value.toLowerCase();
+                        });
+                      },
+                    ),
+                  ),
                   StreamBuilder<List<BudgetPageCategory>>(
                     stream: getBudgets(widget.uid),
                     builder: (context, snapshot) {
@@ -148,12 +175,23 @@ class _BudgetState extends State<BudgetScreen> {
 
                       final budgets = snapshot.data!;
 
+                      // Filter budgets based on search query
+                      final filteredBudgets = budgets
+                          .where((budget) =>
+                          budget.category.toLowerCase().contains(_searchQuery))
+                          .toList();
+
+                      if (filteredBudgets.isEmpty) {
+                        return Text("No matching categories found",
+                            style: TextStyle(color: Colors.white));
+                      }
+
                       return ListView.builder(
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
-                        itemCount: budgets.length,
+                        itemCount: filteredBudgets.length,
                         itemBuilder: (context, index) {
-                          final budget = budgets[index];
+                          final budget = filteredBudgets[index];
                           double remaining = budget.limit - budget.spent;
                           double progress = budget.spent / budget.limit;
 
@@ -169,16 +207,18 @@ class _BudgetState extends State<BudgetScreen> {
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Limit: \$${budget.limit.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
-                                Text('Spent: \$${budget.spent.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
-                                Text('Remaining: \$${remaining.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
+                                Text('Limit: \$${budget.limit.toStringAsFixed(2)}',
+                                    style: TextStyle(color: Colors.white)),
+                                Text('Spent: \$${budget.spent.toStringAsFixed(2)}',
+                                    style: TextStyle(color: Colors.white)),
+                                Text('Remaining: \$${remaining.toStringAsFixed(2)}',
+                                    style: TextStyle(color: Colors.white)),
                                 SizedBox(height: 4),
                                 LinearProgressIndicator(
                                   value: progress > 1.0 ? 1.0 : progress,
                                   color: AppConstants.accentColor,
                                   backgroundColor: Colors.grey[300],
                                 ),
-
                               ],
                             ),
                             trailing: Radio<String>(
@@ -208,7 +248,10 @@ class _BudgetState extends State<BudgetScreen> {
                       child: ElevatedButton(
                         onPressed: _deleteBudget,
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        child: Text("Delete", style: TextStyle(color: AppConstants.textColor),),
+                        child: Text(
+                          "Delete",
+                          style: TextStyle(color: AppConstants.textColor),
+                        ),
                       ),
                     ),
                   ],
@@ -221,8 +264,7 @@ class _BudgetState extends State<BudgetScreen> {
           onPressed: _showAddBudgetForm,
           backgroundColor: Colors.yellow,
           child: Icon(Icons.add),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))
-      ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
       //floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -230,7 +272,6 @@ class _BudgetState extends State<BudgetScreen> {
         selectedItemColor: Colors.amber,
         unselectedItemColor: AppConstants.textColor,
         items: _navItems,
-
         onTap: (index) {
           if (index == 0) {
             Navigator.push(
@@ -248,7 +289,7 @@ class _BudgetState extends State<BudgetScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Already on Budget')),
             );
-          } /*else if (index == 3) {
+          } else if (index == 3) {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -256,11 +297,9 @@ class _BudgetState extends State<BudgetScreen> {
                 builder: (context) => ReportsScreen(uid: widget.uid),
               ),
             );
-          }*/
+          }
         },
       ),
-
     );
   }
 }
-

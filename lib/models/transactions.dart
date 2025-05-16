@@ -7,7 +7,7 @@ class Transactions {
   final String payment_method;
   final DateTime transaction_date;
   final String transaction_type;
-  final String? uid; // Made optional
+  final String? user_id; // Made optional
 
   Transactions({
     required this.transaction_id,
@@ -16,7 +16,7 @@ class Transactions {
     required this.payment_method,
     required this.transaction_date,
     required this.transaction_type,
-    this.uid,
+    this.user_id,
   });
 
   Map<String, dynamic> toMap() {
@@ -27,19 +27,20 @@ class Transactions {
       'payment_method': payment_method,
       'transaction_date': transaction_date,
       'transaction_type': transaction_type,
-      'uid': uid,
+      'user_id': user_id,
     };
   }
 
   factory Transactions.fromDoc(Map<String, dynamic> doc) {
     return Transactions(
+
       transaction_id: doc['transaction_id'],
       amount: doc['amount'],
       description: doc['description'],
       payment_method: doc['payment_method'],
       transaction_date: (doc['transaction_date'] as Timestamp).toDate(),
       transaction_type: doc['transaction_type'],
-      uid: doc['uid'],
+      user_id: doc['user_id'],
     );
   }
 }

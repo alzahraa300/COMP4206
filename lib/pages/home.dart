@@ -1,3 +1,4 @@
+
 import 'package:project_part1/models/budget_page_category.dart';
 import 'package:project_part1/pages/reports.dart';
 import 'package:project_part1/pages/transaction.dart';
@@ -8,6 +9,7 @@ import '../services/budget_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/transaction_service.dart';
 import 'budget.dart';
+import 'location.dart';
 import 'login.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -224,12 +226,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                  builder: (context) => ReportsScreen (uid: widget.uid),
-                  ),
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReportsScreen (uid: widget.uid),
+                    ),
                   );
-                  },
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.bar_chart, color: AppConstants.textColor),
+                title: Text('Location', style: TextStyle(color: AppConstants.textColor)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LocationPage(),
+                    ),
+                  );
+                },
               ),
               ListTile(
                 leading: Icon(Icons.logout, color: AppConstants.textColor),
@@ -248,17 +263,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: SafeArea(
 //        onRefresh: _refreshBudgets,
-  //      color: AppConstants.accentColor,
+        //      color: AppConstants.accentColor,
         child: ListView(
           padding: const EdgeInsets.all(20.0),
           children: [
-            FutureBuilder<double>(
-              future: _transactionService.getTotalIncome(widget.uid),
+            StreamBuilder<double>(
+              stream: _transactionService.getTotalIncome(widget.uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return BudgetCard(title: 'Income', value: 'Loading...');
                 }
                 if (snapshot.hasError) {
+                  print('Income StreamBuilder error: ${snapshot.error}'); // Debug
                   return BudgetCard(title: 'Income', value: 'Error');
                 }
                 final income = snapshot.data?.toStringAsFixed(2) ?? '0.00';
@@ -266,13 +282,14 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const SizedBox(height: 20),
-            FutureBuilder<double>(
-              future: _transactionService.getTotalExpense(widget.uid),
+            StreamBuilder<double>(
+              stream: _transactionService.getTotalExpense(widget.uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return BudgetCard(title: 'Expenses', value: 'Loading...');
                 }
                 if (snapshot.hasError) {
+                  print('Expense StreamBuilder error: ${snapshot.error}'); // Debug
                   return BudgetCard(title: 'Expenses', value: 'Error');
                 }
                 final expenses = snapshot.data?.toStringAsFixed(2) ?? '0.00';
@@ -310,46 +327,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 15),
                   StreamBuilder<List<BudgetPageCategory>>(
-                    stream: getBudgets(widget.uid),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return CircularProgressIndicator();
-                      } else if (snapshot.hasError) {
-                        return Text("Error: ${snapshot.error}");
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return Text("No budgets found", style: TextStyle(color: Colors.white));
+                      stream: getBudgets(widget.uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return CircularProgressIndicator();
+                        } else if (snapshot.hasError) {
+                          return Text("Error: ${snapshot.error}");
+                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return Text("No budgets found", style: TextStyle(color: Colors.white));
+                        }
+
+                        final budgets = snapshot.data!;
+
+                        return Column(
+                          children: budgets.map((budget) =>
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${budget.category}: \$${budget.spent.toStringAsFixed(2)} / \$${budget.limit.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: AppConstants.textColor,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  LinearProgressIndicator(
+                                    value: (budget.spent / budget.limit).clamp(0.0, 1.0),
+                                    backgroundColor: Colors.grey[300],
+                                    valueColor: AlwaysStoppedAnimation<Color>(AppConstants.accentColor),
+                                    minHeight: 8,
+                                  ),
+                                  Divider(
+                                    color: AppConstants.textColor.withOpacity(
+                                        0.2),
+                                    thickness: 1,
+                                  ),
+                                ],
+                              )).toList(),
+                        );
                       }
-
-                      final budgets = snapshot.data!;
-
-                      return Column(
-                        children: budgets.map((budget) =>
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${budget.category}: \$${budget.spent.toStringAsFixed(2)} / \$${budget.limit.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: AppConstants.textColor,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              LinearProgressIndicator(
-                                value: (budget.spent / budget.limit).clamp(0.0, 1.0),
-                                backgroundColor: Colors.grey[300],
-                                valueColor: AlwaysStoppedAnimation<Color>(AppConstants.accentColor),
-                                minHeight: 8,
-                              ),
-                            Divider(
-                              color: AppConstants.textColor.withOpacity(
-                                  0.2),
-                              thickness: 1,
-                            ),
-                          ],
-                          )).toList(),
-                      );
-                    }
                   ),
                 ],
               ),
@@ -358,13 +375,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppConstants.navColor,
-          selectedItemColor: Colors.amber,
-          unselectedItemColor: AppConstants.textColor,
-          items: _navItems,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: AppConstants.navColor,
+        selectedItemColor: Colors.amber,
+        unselectedItemColor: AppConstants.textColor,
+        items: _navItems,
 
-          onTap: (index) {
+        onTap: (index) {
           if (index == 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Already on Home')),
